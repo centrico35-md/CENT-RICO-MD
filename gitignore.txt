@@ -1,4 +1,4 @@
 node_modules/
 auth/
 data/store.json
-*.log 
+*.log
