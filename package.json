@@ -1,0 +1,20 @@
+{
+  "name": "centrico-md",
+  "version": "1.0.0",
+  "description": "CENTRICO MD - WhatsApp Multi-Device Bot with pairing website",
+  "main": "index.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node index.js",
+    "web": "node server.js"
+  },
+  "dependencies": {
+    "@whiskeysockets/baileys": "^6.7.9",
+    "express": "^4.19.2",
+    "pino": "^9.4.0",
+    "sharp": "^0.33.5"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
