@@ -1,6 +1,5 @@
 const crypto = require('crypto');
 const dns = require('dns').promises;
-const QRCode = require('qrcode');
 const store = require('../lib/store');
 
 const afkUsers = new Map(); // in-memory: jid -> reason
@@ -23,10 +22,11 @@ module.exports = [
   {
     cmd: 'qr',
     run: async (sock, msg, jid, args) => {
-      const text = args.join(' ');
-      if (!text) return sock.sendMessage(jid, { text: 'Usage: .qr <text>' }, { quoted: msg });
-      const buffer = await QRCode.toBuffer(text, { width: 512 });
-      await sock.sendMessage(jid, { image: buffer, caption: `QR for: ${text}` }, { quoted: msg });
+      await sock.sendMessage(
+        jid,
+        { text: 'QR image generation needs the "qrcode" package, which is left out of this build for install stability — see README to add it back.' },
+        { quoted: msg }
+      );
     },
   },
   {
