@@ -17,4 +17,10 @@ module.exports = {
 
   // HTTP port for the pairing site + API
   PORT: process.env.PORT || 3000,
+
+  // Required to request a pairing code from the website — treat this like a
+  // password. Change it to your own value, or better, set it as an
+  // environment variable named PAIRING_SECRET in Render's dashboard instead
+  // of hardcoding it here.
+  PAIRING_SECRET: process.env.PAIRING_SECRET || 'change-this-secret-now',
 };
