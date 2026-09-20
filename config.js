@@ -4,7 +4,7 @@ module.exports = {
   OWNER_NAME: 'YOUNGEST BILLIONAIRE',
 
   // Owner's WhatsApp number, digits only, country code first, no + / leading 0
-  OWNER_NUMBER: '2348029793697',
+  OWNER_NUMBER: '2349135481300',
 
   // Accepted command prefixes — a message can start with either
   PREFIXES: ['.', '/'],
