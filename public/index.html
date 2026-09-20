@@ -35,12 +35,53 @@
     }
   }
   *{box-sizing:border-box;}
+  html, body{ height:100%; }
   body{
     margin:0;background:var(--bg);color:var(--ink);
     font-family:'Space Grotesk',system-ui,sans-serif;
     -webkit-font-smoothing:antialiased;
+    position:relative;
+    overflow-x:hidden;
   }
-  .wrap{max-width:640px;margin:0 auto;padding:0 22px;}
+  .bubbles{
+    position:fixed; inset:0;
+    overflow:hidden;
+    pointer-events:none;
+    z-index:0;
+  }
+  .bubble{
+    position:absolute;
+    top:-10%;
+    border-radius:50%;
+    filter:blur(0.5px);
+    animation-name:drop;
+    animation-timing-function:linear;
+    animation-iteration-count:infinite;
+  }
+  .bubble.emerald{ background:radial-gradient(circle at 30% 30%, rgba(34,195,118,0.35), rgba(34,195,118,0.06) 70%); }
+  .bubble.gold{ background:radial-gradient(circle at 30% 30%, rgba(216,177,90,0.32), rgba(216,177,90,0.05) 70%); }
+  @keyframes drop{
+    0%{ transform:translateY(0) translateX(0); opacity:0; }
+    8%{ opacity:1; }
+    92%{ opacity:1; }
+    100%{ transform:translateY(115vh) translateX(var(--drift,20px)); opacity:0; }
+  }
+  .wrap{max-width:640px;margin:0 auto;padding:0 22px;position:relative;z-index:1;}
+
+  .sound-toggle{
+    position:fixed;
+    top:16px; right:16px;
+    z-index:2;
+    width:44px; height:44px;
+    border-radius:50%;
+    background:var(--card);
+    border:1px solid var(--line);
+    color:var(--ink);
+    font-size:18px;
+    display:flex; align-items:center; justify-content:center;
+    cursor:pointer;
+  }
+  .sound-toggle:focus-visible{ outline:2px solid var(--gold); outline-offset:2px; }
 
   header.hero{
     padding:52px 0 40px;
@@ -80,7 +121,7 @@
   }
   label{display:block;font-size:13px;color:var(--ink-dim);margin-bottom:8px;}
   .row{display:flex;gap:10px;}
-  input[type=tel]{
+  input[type=tel], input[type=password]{
     flex:1;
     background:var(--bg);
     border:1px solid var(--line);
@@ -90,7 +131,7 @@
     font-size:16px;
     font-family:'Space Grotesk',sans-serif;
   }
-  input[type=tel]:focus{outline:2px solid var(--emerald);outline-offset:1px;}
+  input[type=tel]:focus, input[type=password]:focus{outline:2px solid var(--emerald);outline-offset:1px;}
   button{
     background:var(--emerald);
     color:#06120C;
@@ -154,6 +195,8 @@
 </style>
 </head>
 <body>
+<div class="bubbles" id="bubbles"></div>
+<button class="sound-toggle" id="soundToggle" type="button" aria-label="Toggle background music" title="Toggle background music">🔇</button>
 <div class="wrap">
 
   <header class="hero">
@@ -170,6 +213,8 @@
         <input type="tel" id="phone" placeholder="+234 800 000 0000" autocomplete="tel">
         <button id="genBtn" type="button">Get code</button>
       </div>
+      <label for="secret" style="margin-top:12px;">Pairing password</label>
+      <input type="password" id="secret" placeholder="Enter the pairing password" autocomplete="off" style="width:100%;">
       <div class="code-out" id="codeOut">
         <div class="code" id="codeVal">— — — —</div>
         <div class="hint">Open WhatsApp → Linked Devices → Link with phone number, then enter this code.</div>
@@ -218,6 +263,7 @@
 <script>
   const btn = document.getElementById('genBtn');
   const phone = document.getElementById('phone');
+  const secret = document.getElementById('secret');
   const out = document.getElementById('codeOut');
   const codeVal = document.getElementById('codeVal');
   const hintEl = out.querySelector('.hint');
@@ -255,7 +301,7 @@
       const res = await fetch('/api/pair', {
         method: 'POST',
         headers: {'Content-Type':'application/json'},
-        body: JSON.stringify({ phone: val })
+        body: JSON.stringify({ phone: val, secret: secret.value })
       });
       const data = await res.json();
       if(!res.ok) throw new Error(data.error || 'Request failed');
@@ -271,6 +317,83 @@
       btn.textContent = 'Get code';
     }
   });
+
+  // Falling bubbles background
+  (function initBubbles(){
+    const container = document.getElementById('bubbles');
+    const count = 22;
+    for(let i=0;i<count;i++){
+      const b = document.createElement('div');
+      const isGold = Math.random() < 0.35;
+      b.className = 'bubble ' + (isGold ? 'gold' : 'emerald');
+      const size = 8 + Math.random()*34;
+      const left = Math.random()*100;
+      const duration = 14 + Math.random()*18;
+      const delay = Math.random()*-30;
+      const drift = (Math.random()*80 - 40) + 'px';
+      b.style.width = size + 'px';
+      b.style.height = size + 'px';
+      b.style.left = left + '%';
+      b.style.setProperty('--drift', drift);
+      b.style.animationDuration = duration + 's';
+      b.style.animationDelay = delay + 's';
+      container.appendChild(b);
+    }
+  })();
+
+  // Self-contained ambient background pad (Web Audio API — no external
+  // audio file needed, so nothing to license or fail to load). Browsers
+  // block audio until a user gesture, hence the toggle button.
+  (function initAmbientAudio(){
+    const toggle = document.getElementById('soundToggle');
+    let ctx = null, nodes = [], playing = false;
+
+    function start(){
+      ctx = new (window.AudioContext || window.webkitAudioContext)();
+      const master = ctx.createGain();
+      master.gain.value = 0.05;
+      master.connect(ctx.destination);
+
+      const freqs = [110, 164.81, 220]; // A2, E3, A3 — a calm open chord
+      freqs.forEach((f, i) => {
+        const osc = ctx.createOscillator();
+        osc.type = 'sine';
+        osc.frequency.value = f;
+        const gain = ctx.createGain();
+        gain.gain.value = 1 / freqs.length;
+
+        // slow LFO on each voice's volume so the pad breathes instead of droning flat
+        const lfo = ctx.createOscillator();
+        lfo.frequency.value = 0.05 + i * 0.02;
+        const lfoGain = ctx.createGain();
+        lfoGain.gain.value = 0.15;
+        lfo.connect(lfoGain);
+        lfoGain.connect(gain.gain);
+
+        osc.connect(gain);
+        gain.connect(master);
+        osc.start();
+        lfo.start();
+        nodes.push(osc, lfo);
+      });
+      nodes.push(master);
+      playing = true;
+      toggle.textContent = '🔊';
+    }
+
+    function stop(){
+      nodes.forEach((n) => { try{ n.stop && n.stop(); n.disconnect && n.disconnect(); }catch(e){} });
+      nodes = [];
+      if(ctx) ctx.close();
+      ctx = null;
+      playing = false;
+      toggle.textContent = '🔇';
+    }
+
+    toggle.addEventListener('click', () => {
+      if(playing) stop(); else start();
+    });
+  })();
 </script>
 </body>
 </html>
