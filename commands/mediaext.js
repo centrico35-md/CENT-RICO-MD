@@ -1,12 +1,5 @@
 const { downloadMediaMessage } = require('@whiskeysockets/baileys');
 const sharp = require('sharp');
-const fs = require('fs');
-const os = require('os');
-const path = require('path');
-const ffmpeg = require('fluent-ffmpeg');
-const ffmpegPath = require('ffmpeg-static');
-
-ffmpeg.setFfmpegPath(ffmpegPath);
 
 function quotedTarget(msg) {
   const ctx = msg.message?.extendedTextMessage?.contextInfo;
@@ -24,35 +17,12 @@ async function getImageBuffer(sock, msg, jid) {
   return downloadMediaMessage(target, 'buffer', {});
 }
 
-async function getAudioOrVideoBuffer(sock, msg, jid) {
-  const target = quotedTarget(msg) || msg;
-  if (!target.message?.audioMessage && !target.message?.videoMessage) {
-    await sock.sendMessage(jid, { text: 'Reply to an audio clip or video with this command.' }, { quoted: msg });
-    return null;
-  }
-  return downloadMediaMessage(target, 'buffer', {});
-}
-
-function runFfmpeg(inputBuffer, filter, ext = 'mp3') {
-  return new Promise((resolve, reject) => {
-    const tmp = os.tmpdir();
-    const inFile = path.join(tmp, `in-${Date.now()}.dat`);
-    const outFile = path.join(tmp, `out-${Date.now()}.${ext}`);
-    fs.writeFileSync(inFile, inputBuffer);
-    ffmpeg(inFile)
-      .audioFilters(filter)
-      .on('end', () => {
-        const out = fs.readFileSync(outFile);
-        fs.unlinkSync(inFile);
-        fs.unlinkSync(outFile);
-        resolve(out);
-      })
-      .on('error', (err) => {
-        try { fs.unlinkSync(inFile); } catch {}
-        reject(err);
-      })
-      .save(outFile);
-  });
+async function audioStub(sock, msg, jid, label) {
+  await sock.sendMessage(
+    jid,
+    { text: `${label} needs ffmpeg on the server, which isn't installed in this build to keep deploys reliable. See README for how to add it back.` },
+    { quoted: msg }
+  );
 }
 
 const imageEffects = {
@@ -130,71 +100,11 @@ module.exports = [
       await sock.sendMessage(jid, { image: out }, { quoted: msg });
     },
   },
-  {
-    cmd: 'tomp3',
-    run: async (sock, msg, jid) => {
-      const buffer = await getAudioOrVideoBuffer(sock, msg, jid);
-      if (!buffer) return;
-      try {
-        const out = await runFfmpeg(buffer, 'volume=1', 'mp3');
-        await sock.sendMessage(jid, { audio: out, mimetype: 'audio/mp4' }, { quoted: msg });
-      } catch (err) {
-        await sock.sendMessage(jid, { text: `Conversion failed: ${err.message}` }, { quoted: msg });
-      }
-    },
-  },
-  {
-    cmd: 'bass',
-    run: async (sock, msg, jid) => {
-      const buffer = await getAudioOrVideoBuffer(sock, msg, jid);
-      if (!buffer) return;
-      try {
-        const out = await runFfmpeg(buffer, 'bass=g=15');
-        await sock.sendMessage(jid, { audio: out, mimetype: 'audio/mp4' }, { quoted: msg });
-      } catch (err) {
-        await sock.sendMessage(jid, { text: `Effect failed: ${err.message}` }, { quoted: msg });
-      }
-    },
-  },
-  {
-    cmd: 'slow',
-    run: async (sock, msg, jid) => {
-      const buffer = await getAudioOrVideoBuffer(sock, msg, jid);
-      if (!buffer) return;
-      try {
-        const out = await runFfmpeg(buffer, 'atempo=0.8');
-        await sock.sendMessage(jid, { audio: out, mimetype: 'audio/mp4' }, { quoted: msg });
-      } catch (err) {
-        await sock.sendMessage(jid, { text: `Effect failed: ${err.message}` }, { quoted: msg });
-      }
-    },
-  },
-  {
-    cmd: 'fast',
-    run: async (sock, msg, jid) => {
-      const buffer = await getAudioOrVideoBuffer(sock, msg, jid);
-      if (!buffer) return;
-      try {
-        const out = await runFfmpeg(buffer, 'atempo=1.3');
-        await sock.sendMessage(jid, { audio: out, mimetype: 'audio/mp4' }, { quoted: msg });
-      } catch (err) {
-        await sock.sendMessage(jid, { text: `Effect failed: ${err.message}` }, { quoted: msg });
-      }
-    },
-  },
-  {
-    cmd: 'nightcore',
-    run: async (sock, msg, jid) => {
-      const buffer = await getAudioOrVideoBuffer(sock, msg, jid);
-      if (!buffer) return;
-      try {
-        const out = await runFfmpeg(buffer, 'atempo=1.25,asetrate=44100*1.25');
-        await sock.sendMessage(jid, { audio: out, mimetype: 'audio/mp4' }, { quoted: msg });
-      } catch (err) {
-        await sock.sendMessage(jid, { text: `Effect failed: ${err.message}` }, { quoted: msg });
-      }
-    },
-  },
+  { cmd: 'tomp3', run: (sock, msg, jid) => audioStub(sock, msg, jid, '.tomp3') },
+  { cmd: 'bass', run: (sock, msg, jid) => audioStub(sock, msg, jid, '.bass') },
+  { cmd: 'slow', run: (sock, msg, jid) => audioStub(sock, msg, jid, '.slow') },
+  { cmd: 'fast', run: (sock, msg, jid) => audioStub(sock, msg, jid, '.fast') },
+  { cmd: 'nightcore', run: (sock, msg, jid) => audioStub(sock, msg, jid, '.nightcore') },
   {
     cmd: 'emojimix',
     run: async (sock, msg, jid, args) => {
