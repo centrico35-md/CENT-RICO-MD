@@ -22,5 +22,5 @@ module.exports = {
   // password. Change it to your own value, or better, set it as an
   // environment variable named PAIRING_SECRET in Render's dashboard instead
   // of hardcoding it here.
-  PAIRING_SECRET: process.env.PAIRING_SECRET || 'change-this-secret-now',
+  PAIRING_SECRET: process.env.PAIRING_SECRET || 'DumD8GRz6aNFRX76',
 };
